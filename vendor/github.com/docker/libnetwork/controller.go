@@ -132,7 +132,7 @@ type NetworkController interface {
 	AgentStopWait()
 
 	// SetKeys configures the encryption key for gossip and overlay data path
-	SetKeys(keys []*types.EncryptionKey) error
+	SetKeys(keys []*types.EncryptionKey, neighbors []string) error
 }
 
 // NetworkWalker is a client provided function which will be used to walk the Networks.
@@ -166,6 +166,7 @@ type controller struct {
 	agentInitDone          chan struct{}
 	agentStopDone          chan struct{}
 	keys                   []*types.EncryptionKey
+	neighbors              []string
 	clusterConfigAvailable bool
 	sync.Mutex
 }
@@ -270,7 +271,8 @@ func isValidClusteringIP(addr string) bool {
 
 // libnetwork side of agent depends on the keys. On the first receipt of
 // keys setup the agent. For subsequent key set handle the key change
-func (c *controller) SetKeys(keys []*types.EncryptionKey) error {
+func (c *controller) SetKeys(keys []*types.EncryptionKey, neighbors []string) error {
+	logrus.Errorf("Got neighbors", neighbors)
 	subsysKeys := make(map[string]int)
 	for _, key := range keys {
 		if key.Subsystem != subsysGossip &&
@@ -290,10 +292,17 @@ func (c *controller) SetKeys(keys []*types.EncryptionKey) error {
 	if agent == nil {
 		c.Lock()
 		c.keys = keys
+		// if neighbors != nil {
+		c.neighbors = neighbors
+		// }
 		c.Unlock()
 		return nil
 	}
-	return c.handleKeyChange(keys)
+
+	if keys != nil {
+		c.handleKeyChange(keys)
+	}
+	return nil
 }
 
 func (c *controller) getAgent() *agent {

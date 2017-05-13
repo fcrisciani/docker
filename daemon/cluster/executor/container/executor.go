@@ -202,7 +202,8 @@ func (e *executor) Controller(t *api.Task) (exec.Controller, error) {
 	return ctlr, nil
 }
 
-func (e *executor) SetNetworkBootstrapKeys(keys []*api.EncryptionKey) error {
+func (e *executor) SetNetworkBootstrapKeys(keys []*api.EncryptionKey, neighbor []string) error {
+	logrus.Errorf("Executor SetNetworkBootstrapKeys %v", neighbor)
 	nwKeys := []*networktypes.EncryptionKey{}
 	for _, key := range keys {
 		nwKey := &networktypes.EncryptionKey{
@@ -214,7 +215,7 @@ func (e *executor) SetNetworkBootstrapKeys(keys []*api.EncryptionKey) error {
 		copy(nwKey.Key, key.Key)
 		nwKeys = append(nwKeys, nwKey)
 	}
-	e.backend.SetNetworkBootstrapKeys(nwKeys)
+	e.backend.SetNetworkBootstrapInfo(nwKeys, neighbor)
 
 	return nil
 }

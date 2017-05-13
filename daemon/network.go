@@ -237,8 +237,8 @@ func (daemon *Daemon) releaseIngress(id string) {
 }
 
 // SetNetworkBootstrapKeys sets the bootstrap keys.
-func (daemon *Daemon) SetNetworkBootstrapKeys(keys []*networktypes.EncryptionKey) error {
-	err := daemon.netController.SetKeys(keys)
+func (daemon *Daemon) SetNetworkBootstrapInfo(keys []*networktypes.EncryptionKey, neighborsIPs []string) error {
+	err := daemon.netController.SetKeys(keys, neighborsIPs)
 	if err == nil {
 		// Upon successful key setting dispatch the keys available event
 		daemon.cluster.SendClusterEvent(lncluster.EventNetworkKeysAvailable)

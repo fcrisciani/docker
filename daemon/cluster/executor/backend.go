@@ -48,7 +48,7 @@ type Backend interface {
 	SystemInfo() (*types.Info, error)
 	VolumeCreate(name, driverName string, opts, labels map[string]string) (*types.Volume, error)
 	Containers(config *types.ContainerListOptions) ([]*types.Container, error)
-	SetNetworkBootstrapKeys([]*networktypes.EncryptionKey) error
+	SetNetworkBootstrapInfo([]*networktypes.EncryptionKey, []string) error
 	DaemonJoinsCluster(provider cluster.Provider)
 	DaemonLeavesCluster()
 	IsSwarmCompatible() error

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/docker/swarmkit/agent/exec"
 	"github.com/docker/swarmkit/api"
 	"github.com/docker/swarmkit/log"
@@ -30,7 +31,8 @@ type Agent struct {
 	// for this node known to the agent.
 	node *api.Node
 
-	keys []*api.EncryptionKey
+	keys      []*api.EncryptionKey
+	neighbors []string
 
 	sessionq chan sessionOperation
 	worker   Worker
@@ -412,24 +414,30 @@ func (a *Agent) handleSessionMessage(ctx context.Context, message *api.SessionMe
 		}
 	}
 
-	if message.NetworkBootstrapKeys == nil {
-		return nil
+	if message.NetworkBootstrapKeys != nil {
+		for _, key := range message.NetworkBootstrapKeys {
+			same := false
+			for _, agentKey := range a.keys {
+				if agentKey.LamportTime == key.LamportTime {
+					same = true
+				}
+			}
+			if !same {
+				a.keys = message.NetworkBootstrapKeys
+				a.neighbors = message.ZoneNeighbors
+				logrus.Errorf("DEBUG before executor %v", a.neighbors)
+				if err := a.config.Executor.SetNetworkBootstrapKeys(a.keys, a.neighbors); err != nil {
+					panic(fmt.Errorf("configuring network key failed"))
+				}
+			}
+		}
 	}
 
-	for _, key := range message.NetworkBootstrapKeys {
-		same := false
-		for _, agentKey := range a.keys {
-			if agentKey.LamportTime == key.LamportTime {
-				same = true
-			}
-		}
-		if !same {
-			a.keys = message.NetworkBootstrapKeys
-			if err := a.config.Executor.SetNetworkBootstrapKeys(a.keys); err != nil {
-				panic(fmt.Errorf("configuring network key failed"))
-			}
-		}
-	}
+	// if message.ZoneNeighbors != nil {
+	// 	if err := a.config.Executor.SetNetworkBootstrapKeys(nil, a.neighbors); err != nil {
+	// 		panic(fmt.Errorf("configuring network key failed"))
+	// 	}
+	// }
 
 	return nil
 }
@@ -562,6 +570,9 @@ func (a *Agent) nodeDescriptionWithHostname(ctx context.Context, tlsInfo *api.No
 		}
 		desc.TLSInfo = tlsInfo
 	}
+
+	desc.Zone = a.config.Zone
+
 	return desc, err
 }
 

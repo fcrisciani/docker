@@ -204,17 +204,12 @@ func (c *controller) agentSetup(clusterProvider cluster.Provider) error {
 	bindAddr := clusterProvider.GetLocalAddress()
 	advAddr := clusterProvider.GetAdvertiseAddress()
 	dataAddr := clusterProvider.GetDataPathAddress()
-	remoteList := clusterProvider.GetRemoteAddressList()
-	remoteAddrList := make([]string, 0, len(remoteList))
-	for _, remote := range remoteList {
-		addr, _, _ := net.SplitHostPort(remote)
-		remoteAddrList = append(remoteAddrList, addr)
-	}
+	remoteAddrList := c.neighbors
 
 	listen := clusterProvider.GetListenAddress()
 	listenAddr, _, _ := net.SplitHostPort(listen)
 
-	logrus.Infof("Initializing Libnetwork Agent Listen-Addr=%s Local-addr=%s Adv-addr=%s Data-addr=%s Remote-addr-list=%v",
+	logrus.Infof("Initializing Libnetwork Agent Listen-Addr=%s Local-addr=%s Adv-addr=%s Data-addr=%s Remote-addrs=%v",
 		listenAddr, bindAddr, advAddr, dataAddr, remoteAddrList)
 	if advAddr != "" && agent == nil {
 		if err := c.agentInit(listenAddr, bindAddr, advAddr, dataAddr); err != nil {

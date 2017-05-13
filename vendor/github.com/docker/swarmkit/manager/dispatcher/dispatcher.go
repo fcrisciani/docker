@@ -454,6 +454,9 @@ func nodeIPFromContext(ctx context.Context) (string, error) {
 // register is used for registration of node with particular dispatcher.
 func (d *Dispatcher) register(ctx context.Context, nodeID string, description *api.NodeDescription) (string, error) {
 	// prevent register until we're ready to accept it
+
+	logrus.Errorf("DEBUG %p Registering the node %s", d, nodeID)
+
 	dctx, err := d.isRunningLocked()
 	if err != nil {
 		return "", err
@@ -476,10 +479,14 @@ func (d *Dispatcher) register(ctx context.Context, nodeID string, description *a
 	if err != nil {
 		log.G(ctx).Debug(err.Error())
 	}
+	d.nodes.AddIPZone(nodeID, description.Zone, addr)
+
+	logrus.Errorf("DEBUG node %s IP %s", nodeID, addr)
 
 	if err := d.markNodeReady(dctx, nodeID, description, addr); err != nil {
 		return "", err
 	}
+	// logrus.Errorf("DEBUG node %s Addr %s", nodeID, d.nodeUpdates[nodeID].status.Addr)
 
 	expireFunc := func() {
 		log.G(ctx).Debugf("heartbeat expiration")
@@ -529,6 +536,8 @@ func (d *Dispatcher) UpdateTaskStatus(ctx context.Context, r *api.UpdateTaskStat
 		return nil, err
 	}
 
+	validTaskUpdates := make([]*api.UpdateTaskStatusRequest_TaskStatusUpdate, 0, len(r.Updates))
+
 	// Validate task updates
 	for _, u := range r.Updates {
 		if u.Status == nil {
@@ -541,7 +550,8 @@ func (d *Dispatcher) UpdateTaskStatus(ctx context.Context, r *api.UpdateTaskStat
 			t = store.GetTask(tx, u.TaskID)
 		})
 		if t == nil {
-			log.WithField("task.id", u.TaskID).Warn("cannot find target task in store")
+			// Task may have been deleted
+			log.WithField("task.id", u.TaskID).Debug("cannot find target task in store")
 			continue
 		}
 
@@ -550,14 +560,13 @@ func (d *Dispatcher) UpdateTaskStatus(ctx context.Context, r *api.UpdateTaskStat
 			log.WithField("task.id", u.TaskID).Error(err)
 			return nil, err
 		}
+
+		validTaskUpdates = append(validTaskUpdates, u)
 	}
 
 	d.taskUpdatesLock.Lock()
 	// Enqueue task updates
-	for _, u := range r.Updates {
-		if u.Status == nil {
-			continue
-		}
+	for _, u := range validTaskUpdates {
 		d.taskUpdates[u.TaskID] = u.Status
 	}
 
@@ -606,7 +615,8 @@ func (d *Dispatcher) processUpdates(ctx context.Context) {
 				logger := log.WithField("task.id", taskID)
 				task := store.GetTask(tx, taskID)
 				if task == nil {
-					logger.Errorf("task unavailable")
+					// Task may have been deleted
+					logger.Debug("cannot find target task in store")
 					return nil
 				}
 
@@ -1073,7 +1083,8 @@ func (d *Dispatcher) getManagers() []*api.WeightedPeer {
 	return d.lastSeenManagers
 }
 
-func (d *Dispatcher) getNetworkBootstrapKeys() []*api.EncryptionKey {
+// TODO(flavio.crisciani) have a different key per zone
+func (d *Dispatcher) getNetworkBootstrapKeys(zone string) []*api.EncryptionKey {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.networkBootstrapKeys
@@ -1154,12 +1165,30 @@ func (d *Dispatcher) Session(r *api.SessionRequest, stream api.Dispatcher_Sessio
 	clusterUpdatesCh, clusterCancel := d.clusterUpdateQueue.Watch()
 	defer clusterCancel()
 
+	// Get max 5 nodes IPs that will be used to seed the Gossip cluster
+	// Note that the zone option is the one used to identify if 2 nodes
+	// are part of the same cluster so will be allowed to communicate
+	neighbors, _ := d.nodes.GetZoneIPNeighbors(nodeID, r.Description.Zone, 5)
+	// zoneNeighbors := make([]string, 0, len(neighbors))
+	logrus.Errorf("DEBUG1 %p Neighbors are %v", d, neighbors)
+	// for _, nid := range neighbors {
+	// 	if nid != nodeID {
+	// 		node, ok := d.nodeUpdates[nid]
+	// 		if ok {
+	// 			zoneNeighbors = append(zoneNeighbors, node.status.Addr)
+	// 		} else {
+	// 			logrus.Errorf("Node %v does not have state", node)
+	// 		}
+	// 	}
+	// }
+
 	if err := stream.Send(&api.SessionMessage{
 		SessionID:            sessionID,
 		Node:                 nodeObj,
 		Managers:             d.getManagers(),
-		NetworkBootstrapKeys: d.getNetworkBootstrapKeys(),
+		NetworkBootstrapKeys: d.getNetworkBootstrapKeys(r.Description.Zone),
 		RootCA:               d.getRootCACert(),
+		ZoneNeighbors:        neighbors,
 	}); err != nil {
 		return err
 	}
@@ -1213,6 +1242,7 @@ func (d *Dispatcher) Session(r *api.SessionRequest, stream api.Dispatcher_Sessio
 			}
 		case ev := <-nodeUpdates:
 			nodeObj = ev.(api.EventUpdateNode).Node
+			logrus.Errorf("Node update received %v", nodeObj)
 		case <-stream.Context().Done():
 			return stream.Context().Err()
 		case <-node.Disconnect:
@@ -1224,11 +1254,18 @@ func (d *Dispatcher) Session(r *api.SessionRequest, stream api.Dispatcher_Sessio
 			mgrs = d.getManagers()
 		}
 		if netKeys == nil {
-			netKeys = d.getNetworkBootstrapKeys()
+			netKeys = d.getNetworkBootstrapKeys(r.Description.Zone)
 		}
 		if rootCert == nil {
 			rootCert = d.getRootCACert()
 		}
+
+		// Get max 5 nodes IPs that will be used to seed the Gossip cluster
+		// Note that the zone option is the one used to identify if 2 nodes
+		// are part of the same cluster so will be allowed to communicate
+		neighbors, _ := d.nodes.GetZoneIPNeighbors(nodeID, r.Description.Zone, 5)
+		// zoneNeighbors := make([]string, 0, len(neighbors))
+		logrus.Errorf("DEBUG2 %p Neighbors are %v", d, neighbors)
 
 		if err := stream.Send(&api.SessionMessage{
 			SessionID:            sessionID,
@@ -1236,6 +1273,7 @@ func (d *Dispatcher) Session(r *api.SessionRequest, stream api.Dispatcher_Sessio
 			Managers:             mgrs,
 			NetworkBootstrapKeys: netKeys,
 			RootCA:               rootCert,
+			ZoneNeighbors:        neighbors,
 		}); err != nil {
 			return err
 		}

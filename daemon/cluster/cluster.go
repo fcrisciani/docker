@@ -291,7 +291,7 @@ func (c *Cluster) GetDataPathAddress() string {
 
 // GetRemoteAddressList returns the advertise address for each of the remote managers if
 // available.
-func (c *Cluster) GetRemoteAddressList() []string {
+func (c *Cluster) GetRemoteAddresses() []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.getRemoteAddressList()

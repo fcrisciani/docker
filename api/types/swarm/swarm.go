@@ -151,6 +151,7 @@ type InitRequest struct {
 	DataPathAddr     string
 	ForceNewCluster  bool
 	Spec             Spec
+	Zone             string
 	AutoLockManagers bool
 	Availability     NodeAvailability
 }
@@ -162,6 +163,7 @@ type JoinRequest struct {
 	DataPathAddr  string
 	RemoteAddrs   []string
 	JoinToken     string // accept by secret
+	Zone          string
 	Availability  NodeAvailability
 }
 

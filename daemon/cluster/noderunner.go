@@ -51,6 +51,8 @@ type nodeStartConfig struct {
 	// DataPathAddr is the address that has to be used for the data path
 	DataPathAddr string
 
+	Zone string
+
 	joinAddr        string
 	forceNewCluster bool
 	joinToken       string
@@ -114,6 +116,7 @@ func (n *nodeRunner) start(conf nodeStartConfig) error {
 		UnlockKey:          conf.lockKey,
 		AutoLockManagers:   conf.autolock,
 		PluginGetter:       n.cluster.config.Backend.PluginGetter(),
+		Zone:               conf.Zone,
 	}
 	if conf.availability != "" {
 		avail, ok := swarmapi.NodeSpec_Availability_value[strings.ToUpper(string(conf.availability))]
