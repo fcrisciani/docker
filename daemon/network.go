@@ -3,7 +3,6 @@ package daemon
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -330,7 +329,7 @@ func (daemon *Daemon) createNetwork(create types.NetworkCreateRequest, id string
 		nwOptions = append(nwOptions, libnetwork.NetworkOptionConfigFrom(create.ConfigFrom.Network))
 	}
 
-	if agent && driver == "overlay" && (create.Ingress || runtime.GOOS == "windows") {
+	if agent && driver == "overlay" {
 		nodeIP, exists := daemon.GetAttachmentStore().GetIPForNetwork(id)
 		if !exists {
 			return nil, fmt.Errorf("Failed to find a load balancer IP to use for network: %v", id)

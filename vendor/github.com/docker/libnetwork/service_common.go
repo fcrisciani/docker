@@ -259,6 +259,8 @@ func (c *controller) addServiceBinding(svcName, svcID, nID, eID, containerName s
 	logrus.Debugf("addServiceBinding from %s START for %s %s p:%p nid:%s skey:%v", method, svcName, eID, s, nID, skey)
 	defer s.Unlock()
 
+	//TODO once the fix is done, there will be 1 loadbalancer per network so the network can keep a list of services directly
+	// The only concern remains the STORE, will the network be always the same???
 	lb, ok := s.loadBalancers[nID]
 	if !ok {
 		// Create a new load balancer if we are seeing this
@@ -291,7 +293,7 @@ func (c *controller) addServiceBinding(svcName, svcID, nID, eID, containerName s
 	// Add loadbalancer service and backend in all sandboxes in
 	// the network only if vip is valid.
 	if len(vip) != 0 {
-		n.(*network).addLBBackend(ip, vip, lb, ingressPorts)
+		c.networks[n.ID()].addLBBackend(ip, vip, lb, ingressPorts)
 	}
 
 	// Add the appropriate name resolutions

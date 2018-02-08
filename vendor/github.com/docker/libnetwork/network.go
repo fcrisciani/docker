@@ -233,6 +233,7 @@ type network struct {
 	configOnly     bool
 	configFrom     string
 	loadBalancerIP net.IP
+	loadBalancerSB *sandbox
 	sync.Mutex
 }
 
@@ -2060,11 +2061,14 @@ func (n *network) createLoadBalancerSandbox() error {
 	sbOptions := []SandboxOption{}
 	if n.ingress {
 		sbOptions = append(sbOptions, OptionIngress())
+	} else {
+		sandboxName = "lb-" + n.name
 	}
 	sb, err := n.ctrlr.NewSandbox(sandboxName, sbOptions...)
 	if err != nil {
 		return err
 	}
+	n.loadBalancerSB = sb.(*sandbox)
 	defer func() {
 		if err != nil {
 			if e := n.ctrlr.SandboxDestroy(sandboxName); e != nil {
@@ -2104,6 +2108,9 @@ func (n *network) deleteLoadBalancerSandbox() {
 
 	endpointName := name + "-endpoint"
 	sandboxName := name + "-sbox"
+	if !n.ingress {
+		sandboxName = "lb-" + n.name
+	}
 
 	endpoint, err := n.EndpointByName(endpointName)
 	if err != nil {
@@ -2130,4 +2137,25 @@ func (n *network) deleteLoadBalancerSandbox() {
 	if err := c.SandboxDestroy(sandboxName); err != nil {
 		logrus.Warnf("Failed to delete %s sandbox: %v", sandboxName, err)
 	}
+	//TODO check race with these locks
+	n.Lock()
+	n.loadBalancerSB = nil
+	n.Unlock()
+}
+
+func (n *network) AddLoadBalancer(ep *endpoint, sb *sandbox) error {
+
+	return nil
+}
+
+func (n *network) RemoveLoadBalancer(ep *endpoint, sb *sandbox) error {
+	return nil
+}
+
+func (n *network) AddServiceDiscovery(ep *endpoint, sb *sandbox) error {
+	return nil
+}
+
+func (n *network) RemoveServiceDiscovery(ep *endpoint, sb *sandbox) error {
+	return nil
 }

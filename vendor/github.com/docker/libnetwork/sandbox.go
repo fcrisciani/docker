@@ -683,6 +683,18 @@ func (sb *sandbox) EnableService() (err error) {
 	}()
 	for _, ep := range sb.getConnectedEndpoints() {
 		if !ep.isServiceEnabled() {
+			// // Add to load balancer
+			// err = ep.network.AddLoadBalancer(ep, sb)
+			// if err != nil {
+			// 	// TODO SCREAM failure
+			// 	logrus.WithError(err).Error("failed to enable the load balancer")
+			// }
+			// // Add to service discovery
+			// err = ep.network.AddServiceDiscovery(ep, sb)
+			// if err != nil {
+			// 	// TODO SCREAM failure
+			// 	logrus.WithError(err).Error("failed to enable the load balancer")
+			// }
 			if err := ep.addServiceInfoToCluster(sb); err != nil {
 				return fmt.Errorf("could not update state for endpoint %s into cluster: %v", ep.Name(), err)
 			}
@@ -703,6 +715,20 @@ func (sb *sandbox) DisableService() (err error) {
 	}()
 	for _, ep := range sb.getConnectedEndpoints() {
 		if ep.isServiceEnabled() {
+			// // Add to load balancer
+			// err = ep.network.RemoveLoadBalancer(ep, sb)
+			// if err != nil {
+			// 	// TODO SCREAM failure
+			// 	logrus.WithError(err).Error("failed to enable the load balancer")
+			// }
+			// // Add to service discovery
+			// err = ep.network.RemoveServiceDiscovery(ep, sb)
+			// if err != nil {
+			// 	// TODO SCREAM failure
+			// 	logrus.WithError(err).Error("failed to enable the load balancer")
+			// }
+			//
+
 			if err := ep.deleteServiceInfoFromCluster(sb, "DisableService"); err != nil {
 				failedEps = append(failedEps, ep.Name())
 				logrus.Warnf("failed update state for endpoint %s into cluster: %v", ep.Name(), err)

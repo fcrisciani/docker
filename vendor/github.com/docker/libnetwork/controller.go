@@ -177,6 +177,7 @@ type controller struct {
 	keys                   []*types.EncryptionKey
 	clusterConfigAvailable bool
 	DiagnosticServer       *diagnostic.Server
+	networks               map[string]*network
 	sync.Mutex
 }
 
@@ -196,6 +197,7 @@ func New(cfgOptions ...config.Option) (NetworkController, error) {
 		agentInitDone:    make(chan struct{}),
 		networkLocker:    locker.New(),
 		DiagnosticServer: diagnostic.New(),
+		networks:         make(map[string]*network),
 	}
 	c.DiagnosticServer.Init()
 
@@ -979,6 +981,8 @@ func (c *controller) addNetwork(n *network) error {
 	if err := d.CreateNetwork(n.id, n.generic, n, n.getIPData(4), n.getIPData(6)); err != nil {
 		return err
 	}
+
+	c.networks[n.id] = n
 
 	n.startResolver()
 

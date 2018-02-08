@@ -112,23 +112,27 @@ func (sb *sandbox) populateLoadbalancers(ep *endpoint) {
 // Add loadbalancer backend to all sandboxes which has a connection to
 // this network. If needed add the service as well.
 func (n *network) addLBBackend(ip, vip net.IP, lb *loadBalancer, ingressPorts []*PortConfig) {
-	n.WalkEndpoints(func(e Endpoint) bool {
-		ep := e.(*endpoint)
-		if sb, ok := ep.getSandbox(); ok {
-			if !sb.isEndpointPopulated(ep) {
-				return false
-			}
-
-			var gwIP net.IP
-			if ep := sb.getGatewayEndpoint(); ep != nil {
-				gwIP = ep.Iface().Address().IP
-			}
-
-			sb.addLBBackend(ip, vip, lb.fwMark, ingressPorts, ep.Iface().Address(), gwIP, n.ingress)
-		}
-
-		return false
-	})
+	// add LB to lb sandbox
+	n.loadBalancerSB.addLBBackend(ip, vip, lb.fwMark, ingressPorts, &net.IPNet{IP: ip, Mask: net.CIDRMask(32, 32)}, n.loadBalancerIP, n.ingress)
+	// add LB to ingress
+	// n.ctrlr.ingressSanbox.addLBBackend(ip, vip, fwMark, ingressPorts, eIP, n.loadBalancerIP, n.ingress)
+	// n.WalkEndpoints(func(e Endpoint) bool {
+	// 	ep := e.(*endpoint)
+	// 	if sb, ok := ep.getSandbox(); ok {
+	// 		if !sb.isEndpointPopulated(ep) {
+	// 			return false
+	// 		}
+	//
+	// 		var gwIP net.IP
+	// 		if ep := sb.getGatewayEndpoint(); ep != nil {
+	// 			gwIP = ep.Iface().Address().IP
+	// 		}
+	//
+	// 		sb.addLBBackend(ip, vip, lb.fwMark, ingressPorts, ep.Iface().Address(), gwIP, n.ingress)
+	// 	}
+	//
+	// 	return false
+	// })
 }
 
 // Remove loadbalancer backend from all sandboxes which has a
